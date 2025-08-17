@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Tampilan BG & Jam</title>
+  <style>
+    body {
+      margin: 0; font-family: 'Poppins', sans-serif; height: 100vh;
+      background-size: cover; background-position: center; background-repeat: no-repeat;
+      transition: background 1s ease-in-out; overflow: hidden;
+    }
+    body.fullscreen-mode { transition: transform 0.4s ease; transform: scale(1.02); }
+    #bgLayer { position: fixed; inset: 0; background-size: cover; background-position: center; background-repeat: no-repeat; opacity: 0; transition: opacity 1s ease-in-out; z-index: -1; }
+    .panel { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: rgba(0, 0, 0, 0.5); padding: 40px 60px; border-radius: 20px; text-align: center; z-index: 1; box-shadow: 0 8px 20px rgba(0, 0, 0, 0.5); transition: background 0.5s ease; }
+    .clock { font-size: 80px; font-weight: bold; color: white; text-shadow: 2px 2px 10px rgba(0,0,0,0.7); }
+    .date { font-size: 30px; color: white; text-shadow: 2px 2px 10px rgba(0,0,0,0.7); margin-top: 10px; }
+    .icon-bar { position: fixed; bottom: 20px; left: 20px; display: flex; gap: 15px; z-index: 10; }
+    .icon-bar button { background: rgba(255, 255, 255, 0.15); border: none; border-radius: 12px; padding: 10px; color: white; cursor: pointer; backdrop-filter: blur(10px); transition: transform 0.25s ease; display: flex; align-items: center; justify-content: center; }
+    .icon-bar button:hover { transform: scale(1.15); }
+    .icon-bar button svg { width: 22px; height: 22px; stroke-width: 2.2; }
+    .popup { position: fixed; bottom: 0; left: 50%; transform: translate(-50%, 100%); background: rgba(0, 0, 0, 0.7); padding: 20px; border-radius: 20px 20px 0 0; display: flex; gap: 15px; width: 360px; overflow-x: auto; white-space: nowrap; opacity: 0; pointer-events: none; transition: transform 0.4s ease, opacity 0.4s ease; z-index: 20; backdrop-filter: blur(10px); }
+    .popup::-webkit-scrollbar { display: none; }
+    .popup.show { transform: translate(-50%, 0); opacity: 1; pointer-events: auto; }
+    .popup img { flex: 0 0 auto; width: 100px; height: 60px; object-fit: cover; border-radius: 10px; cursor: pointer; transition: transform 0.3s ease; }
+    .popup img:hover { transform: translateY(-10px) scale(1.05); }
+    .color-panel { position: fixed; bottom: 20px; right: 20px; background: rgba(0,0,0,0.7); padding: 15px; border-radius: 15px; z-index: 10; text-align: center; color: white; font-size: 14px; width: 280px; min-height: 320px; opacity: 0; transform: translateY(20px); pointer-events: none; transition: transform 0.3s ease, opacity 0.3s ease; backdrop-filter: blur(10px); }
+    .color-panel.show { opacity: 1; transform: translateY(0); pointer-events: auto; }
+    .tabs { display: flex; gap: 10px; margin-bottom: 10px; }
+    .tabs button { flex: 1; padding: 8px; border: none; border-radius: 8px; cursor: pointer; background: rgba(255,255,255,0.2); color: white; font-weight: bold; transition: background 0.3s ease; }
+    .tabs button.active { background: rgba(255,255,255,0.5); color: black; }
+    .colorWheelContainer { display: none; flex-direction: column; align-items: center; }
+    .colorWheelContainer.active { display: flex; }
+    .preview { margin-top: 8px; font-family: monospace; font-size: 10px; opacity: 0.8; }
+    .slider { width: 100%; margin-top: 5px; }
+  </style>
+</head>
+<body style="background-image: url('/assets/bg1.jpg');">
+
+  <div id="bgLayer"></div>
+
+  <div class="panel" id="panelBox">
+    <div class="clock" id="clock"></div>
+    <div class="date" id="date"></div>
+  </div>
+
+  <div class="icon-bar">
+    <button onclick="togglePopup()"><i data-lucide="images"></i></button>
+    <button onclick="toggleFullscreen()"><i data-lucide="maximize"></i></button>
+    <button onclick="toggleColorPanel()"><i data-lucide="palette"></i></button>
+  </div>
+
+  <!-- popup pilihan background -->
+  <div class="popup" id="popup">
+    <img src="/assets/bg1.jpg" onclick="changeBg('/assets/bg1.jpg')">
+    <img src="/assets/bg2.jpg" onclick="changeBg('/assets/bg2.jpg')">
+    <img src="/assets/bg3.jpg" onclick="changeBg('/assets/bg3.jpg')">
+    <img src="/assets/bg4.jpg" onclick="changeBg('/assets/bg4.jpg')">
+  </div>
+
+  <!-- panel warna -->
+  <div class="color-panel" id="colorPanel">
+    <div class="tabs">
+      <button onclick="showTab('clockTab')" id="tabClock" class="active">Jam</button>
+      <button onclick="showTab('dateTab')" id="tabDate">Tanggal</button>
+      <button onclick="showTab('panelTab')" id="tabPanel">Panel</button>
+    </div>
+
+    <!-- JAM -->
+    <div id="clockTab" class="colorWheelContainer active">
+      <div id="colorWheelClock"></div>
+      <label>Transparansi: <input type="range" id="alphaClock" class="slider" min="0" max="1" step="0.01"></label>
+      <label>Stroke: <input type="range" id="strokeClock" class="slider" min="0" max="10"></label>
+      <div id="strokeColorClock"></div>
+      <div id="previewClock" class="preview"></div>
+    </div>
+
+    <!-- TANGGAL -->
+    <div id="dateTab" class="colorWheelContainer">
+      <div id="colorWheelDate"></div>
+      <label>Transparansi: <input type="range" id="alphaDate" class="slider" min="0" max="1" step="0.01"></label>
+      <label>Stroke: <input type="range" id="strokeDate" class="slider" min="0" max="10"></label>
+      <div id="strokeColorDate"></div>
+      <div id="previewDate" class="preview"></div>
+    </div>
+
+    <!-- PANEL -->
+    <div id="panelTab" class="colorWheelContainer">
+      <div id="colorWheelPanel"></div>
+      <label>Transparansi: <input type="range" id="alphaPanel" class="slider" min="0" max="1" step="0.01"></label>
+      <div id="previewPanel" class="preview"></div>
+    </div>
+  </div>
+
+  <!-- CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/@jaames/iro@5"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+
+  <script>
+    // jam & tanggal
+    function updateClock(){
+      const now=new Date();
+      document.getElementById("clock").textContent=now.toLocaleTimeString('id-ID',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+      document.getElementById("date").textContent=now.toLocaleDateString('id-ID',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
+    }
+    setInterval(updateClock,1000); updateClock();
+
+    const popup=document.getElementById("popup");
+    const colorPanel=document.getElementById("colorPanel");
+    function togglePopup(){popup.classList.toggle("show");}
+    function toggleColorPanel(){colorPanel.classList.toggle("show");}
+    function changeBg(src){const bgLayer=document.getElementById("bgLayer");bgLayer.style.backgroundImage=`url('${src}')`;bgLayer.style.opacity=1;setTimeout(()=>{document.body.style.backgroundImage=`url('${src}')`;bgLayer.style.opacity=0;},1000);localStorage.setItem("bgImage",src);}
+    function toggleFullscreen(){if(!document.fullscreenElement){document.documentElement.requestFullscreen();document.body.classList.add("fullscreen-mode");}else{document.exitFullscreen?.();document.body.classList.remove("fullscreen-mode");}}
+    function showTab(tabId){document.querySelectorAll(".colorWheelContainer").forEach(el=>el.classList.remove("active"));document.querySelectorAll(".tabs button").forEach(el=>el.classList.remove("active"));document.getElementById(tabId).classList.add("active");document.querySelector(`[onclick="showTab('${tabId}')"]`).classList.add("active");}
+
+    // pickers
+    const wheelClock=new iro.ColorPicker("#colorWheelClock",{width:150,color:"#ffffff"});
+    const wheelDate=new iro.ColorPicker("#colorWheelDate",{width:150,color:"#ffffff"});
+    const wheelPanel=new iro.ColorPicker("#colorWheelPanel",{width:150,color:"#000000"});
+    const strokeColorClock=new iro.ColorPicker("#strokeColorClock",{width:120,color:"#000000"});
+    const strokeColorDate=new iro.ColorPicker("#strokeColorDate",{width:120,color:"#000000"});
+
+    const alphaClock=document.getElementById("alphaClock");
+    const alphaDate=document.getElementById("alphaDate");
+    const alphaPanel=document.getElementById("alphaPanel");
+    const strokeClock=document.getElementById("strokeClock");
+    const strokeDate=document.getElementById("strokeDate");
+
+    // JAM
+    wheelClock.on("color:change",c=>{
+      const col=`rgba(${c.rgb.r},${c.rgb.g},${c.rgb.b},${alphaClock.value})`;
+      document.getElementById("clock").style.color=col;
+      document.getElementById("previewClock").textContent=`HEX:${c.hexString.toUpperCase()} | RGBA:${col}`;
+      localStorage.setItem("clockColor",col);
+    });
+    alphaClock.addEventListener("input",()=>wheelClock.emit("color:change",wheelClock.color));
+    strokeClock.addEventListener("input",()=>applyStroke("clock",strokeClock.value,strokeColorClock.color.hexString));
+    strokeColorClock.on("color:change",c=>applyStroke("clock",strokeClock.value,c.hexString));
+
+    // TANGGAL
+    wheelDate.on("color:change",c=>{
+      const col=`rgba(${c.rgb.r},${c.rgb.g},${c.rgb.b},${alphaDate.value})`;
+      document.getElementById("date").style.color=col;
+      document.getElementById("previewDate").textContent=`HEX:${c.hexString.toUpperCase()} | RGBA:${col}`;
+      localStorage.setItem("dateColor",col);
+    });
+    alphaDate.addEventListener("input",()=>wheelDate.emit("color:change",wheelDate.color));
+    strokeDate.addEventListener("input",()=>applyStroke("date",strokeDate.value,strokeColorDate.color.hexString));
+    strokeColorDate.on("color:change",c=>applyStroke("date",strokeDate.value,c.hexString));
+
+    // PANEL
+    wheelPanel.on("color:change",c=>{
+      const col=`rgba(${c.rgb.r},${c.rgb.g},${c.rgb.b},${alphaPanel.value})`;
+      document.getElementById("panelBox").style.background=col;
+      document.getElementById("previewPanel").textContent=`HEX:${c.hexString.toUpperCase()} | RGBA:${col}`;
+      localStorage.setItem("panelColor",col);
+    });
+    alphaPanel.addEventListener("input",()=>wheelPanel.emit("color:change",wheelPanel.color));
+
+    // fungsi apply stroke (outline teks)
+    function applyStroke(target,width,color){
+      const el=document.getElementById(target);
+      el.style.webkitTextStroke=`${width}px ${color}`;
+      localStorage.setItem(target+"Stroke",width+"|"+color);
+    }
+
+    // load saved
+    window.addEventListener("load",()=>{
+      lucide.createIcons();
+      const savedBg=localStorage.getItem("bgImage"); if(savedBg)document.body.style.backgroundImage=`url('${savedBg}')`;
+      const savedClock=localStorage.getItem("clockColor"); if(savedClock)document.getElementById("clock").style.color=savedClock;
+      const savedDate=localStorage.getItem("dateColor"); if(savedDate)document.getElementById("date").style.color=savedDate;
+      const savedPanel=localStorage.getItem("panelColor"); if(savedPanel)document.getElementById("panelBox").style.background=savedPanel;
+      const savedClockStroke=localStorage.getItem("clockStroke"); if(savedClockStroke){const[w,col]=savedClockStroke.split("|");applyStroke("clock",w,col);strokeClock.value=w;}
+      const savedDateStroke=localStorage.getItem("dateStroke"); if(savedDateStroke){const[w,col]=savedDateStroke.split("|");applyStroke("date",w,col);strokeDate.value=w;}
+    });
+
+    document.addEventListener("click",e=>{
+      const btnPopup=document.querySelector(".icon-bar button:nth-child(1)");
+      const btnColor=document.querySelector(".icon-bar button:nth-child(3)");
+      if(popup.classList.contains("show")&&!popup.contains(e.target)&&!btnPopup.contains(e.target)){popup.classList.remove("show");}
+      if(colorPanel.classList.contains("show")&&!colorPanel.contains(e.target)&&!btnColor.contains(e.target)){colorPanel.classList.remove("show");}
+    });
+  </script>
+</body>
+</html>
